@@ -1,0 +1,137 @@
+---
+import { db, GuestBook } from 'astro:db';
+import { Blog, Client, Comment, Author, CheckResult } from '@cedx/akismet';
+
+if (Astro.request.method === 'POST') {
+  const blog = new Blog({ url: 'https://www.ryantrimble.com/' }),
+    client = new Client(import.meta.env.AKISMET_TOKEN, blog);
+
+  let formData = await Astro.request.formData(),
+    author = formData.get('author'),
+    content = formData.get('content'),
+    isValid = false;
+
+  try {
+    isValid = await client.verifyKey();
+  } catch (error) {
+    handleError(error);
+  }
+
+  if (isValid) {
+    if (typeof author === 'string' && typeof content === 'string') {
+      try {
+        let commentAuthor = new Author({
+          name: author,
+        });
+
+        let comment = new Comment({
+          author: commentAuthor,
+          content,
+        });
+
+        const result = await client.checkComment(comment);
+
+        if (result === CheckResult.ham) {
+          await db.insert(GuestBook).values({ author, content });
+        }
+      } catch (error) {
+        if (typeof error === 'string' || typeof error === 'object') {
+          handleError(error);
+        }
+      }
+    }
+  }
+}
+
+// @ts-ignore
+function handleError(error) {
+  if (typeof error === 'string' || typeof error === 'object') {
+    const message = error instanceof Error ? error.message : String(error);
+    console.log(`An error occurred: ${message}`);
+  }
+}
+
+const guestBook = await db.select().from(GuestBook);
+---
+
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <meta name="viewport" content="width=device-width" />
+    <meta name="generator" content={Astro.generator} />
+    <title>Astro</title>
+    <link rel="stylesheet" href="https://unpkg.com/@mrtrimble/untitled-design-system@0.0.1-2/lib/style.css" />
+  </head>
+  <body>
+    <div class="skip-link"><a href="#main-content">Skip to content.</a></div>
+    <header class="container mx-auto text-center mt-lg">
+      <h1>This is a Guest Book.</h1>
+      <div class="mt-sm">
+        <button type="button" class="button modal-toggle" data-target="dialog-modal"> Sign here </button>
+      </div>
+    </header>
+    <main id="main-content" class="container mx-auto px-sm mt-sm flow" style="--container-max-width: 60ch;">
+      <dl class="flow flow-sm">
+        {
+          guestBook
+            .map(({ author, content, timestamp }) => (
+              <div class="card">
+                <dt>
+                  <strong>{author}</strong>
+                </dt>
+                <dd>{content}</dd>
+                <dd>
+                  {timestamp.toLocaleDateString('en-US', {
+                    weekday: 'long',
+                    year: 'numeric',
+                    month: 'long',
+                    day: 'numeric',
+                  })}
+                </dd>
+              </div>
+            ))
+            .reverse()
+        }
+      </dl>
+
+      <dialog class="modal" id="dialog-modal" role="dialog">
+        <div class="modal-inner">
+          <h4>Leave a message:</h4>
+          <form method="POST" class="grid flow flow-sm">
+            <label for="author">
+              Author
+              <input id="author" name="author" />
+            </label>
+
+            <label for="content">
+              Content
+              <textarea id="content" name="content"></textarea>
+            </label>
+
+            <div class="flex gap gap-sm justify-end">
+              <button class="button secondary modal-toggle" data-target="dialog-modal" type="reset">Cancel</button>
+              <button type="submit">Leave your mark</button>
+            </div>
+          </form>
+        </div>
+      </dialog>
+    </main>
+
+    <footer class="container mx-auto text-center my-lg">
+      <p>Made with 💜 by Ryan</p>
+    </footer>
+
+    <script src="https://unpkg.com/@mrtrimble/untitled-design-system/lib/untitled-design-system.js"></script>
+  </body>
+</html>
+
+<style>
+  .justify-end {
+    flex-wrap: nowrap;
+    justify-content: end;
+  }
+  .gap {
+    gap: var(--grid-gap, 1rem);
+  }
+</style>

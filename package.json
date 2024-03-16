@@ -5,13 +5,14 @@
   "scripts": {
     "dev": "astro dev",
     "start": "astro dev",
-    "build": "astro check && astro build",
+    "build": "astro check && astro build --remote",
     "preview": "astro preview",
     "astro": "astro"
   },
   "dependencies": {
     "@astrojs/check": "^0.5.9",
     "@astrojs/db": "^0.8.6",
+    "@astrojs/netlify": "^5.1.3",
     "@cedx/akismet": "^16.1.0",
     "astro": "^4.5.5",
     "typescript": "^5.4.2"

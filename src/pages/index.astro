@@ -3,14 +3,17 @@ import { db, GuestBook } from 'astro:db';
 import { Blog, Client, Comment, Author, CheckResult } from '@cedx/akismet';
 
 if (Astro.request.method === 'POST') {
+  // Setup Akismet client
   const blog = new Blog({ url: 'https://www.ryantrimble.com/' }),
     client = new Client(import.meta.env.AKISMET_TOKEN, blog);
 
+  // Parse data
   let formData = await Astro.request.formData(),
     author = formData.get('author'),
     content = formData.get('content'),
     isValid = false;
 
+  // Check if Akismet API key is valid
   try {
     isValid = await client.verifyKey();
   } catch (error) {
@@ -18,6 +21,7 @@ if (Astro.request.method === 'POST') {
   }
 
   if (isValid) {
+    // Check if comment is spam or not
     if (typeof author === 'string' && typeof content === 'string') {
       try {
         let commentAuthor = new Author({
@@ -32,7 +36,11 @@ if (Astro.request.method === 'POST') {
         const result = await client.checkComment(comment);
 
         if (result === CheckResult.ham) {
+					// If comment is not spam (or ham as Akismet calls it), push the entry to the database.
           await db.insert(GuestBook).values({ author, content });
+        } else {
+					// Otherwise disregard comment.
+          throw new Error('This comment has not been published.');
         }
       } catch (error) {
         if (typeof error === 'string' || typeof error === 'object') {

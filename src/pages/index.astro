@@ -36,10 +36,13 @@ if (Astro.request.method === 'POST') {
         const result = await client.checkComment(comment);
 
         if (result === CheckResult.ham) {
-					// If comment is not spam (or ham as Akismet calls it), push the entry to the database.
+          // If comment is not spam (or ham as Akismet calls it), push the entry to the database.
           await db.insert(GuestBook).values({ author, content });
+
+          // Finally redirect back to homepage!
+          return Astro.redirect('/');
         } else {
-					// Otherwise disregard comment.
+          // Otherwise disregard comment.
           throw new Error('This comment has not been published.');
         }
       } catch (error) {

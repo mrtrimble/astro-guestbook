@@ -4,15 +4,12 @@ import { db, GuestBook } from 'astro:db';
 export default async function seed() {
 	await db.insert(GuestBook).values([
 		{
-			id: 1,
-			author: 'Test Testerson',
-			content: 'Now this is some fuggin content!'
+			author: 'John Doe',
+			content: 'You are so cool!'
 		},
 		{
-			id: 2,
-			author: 'QA Steve',
-			content: 'why did Tim Berners-Lee unleash this hellscape upon us, btw all the icons are fucked up.'
+			author: 'John Doe, The Second',
+			content: 'I agree with my dad, John Doe, you are pretty cool!'
 		}
 	]);
-	
 }

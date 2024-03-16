@@ -2,52 +2,56 @@
 import { db, GuestBook } from 'astro:db';
 import { Blog, Client, Comment, Author, CheckResult } from '@cedx/akismet';
 
+// Watch for POST requests
 if (Astro.request.method === 'POST') {
   // Setup Akismet client
   const blog = new Blog({ url: 'https://www.ryantrimble.com/' }),
     client = new Client(import.meta.env.AKISMET_TOKEN, blog);
 
-  // Parse data
+  // Parse form data
   let formData = await Astro.request.formData(),
     author = formData.get('author'),
+    special = formData.get('special'),
     content = formData.get('content'),
     isValid = false;
 
-  // Check if Akismet API key is valid
-  try {
-    isValid = await client.verifyKey();
-  } catch (error) {
-    handleError(error);
-  }
+  if (!special) {
+    // Check if Akismet API key is valid
+    try {
+      isValid = await client.verifyKey();
+    } catch (error) {
+      handleError(error);
+    }
 
-  if (isValid) {
-    // Check if comment is spam or not
-    if (typeof author === 'string' && typeof content === 'string') {
-      try {
-        let commentAuthor = new Author({
-          name: author,
-        });
+    if (isValid) {
+      // Check if comment is spam or not
+      if (typeof author === 'string' && typeof content === 'string') {
+        try {
+          let commentAuthor = new Author({
+            name: author,
+          });
 
-        let comment = new Comment({
-          author: commentAuthor,
-          content,
-        });
+          let comment = new Comment({
+            author: commentAuthor,
+            content,
+          });
 
-        const result = await client.checkComment(comment);
+          const result = await client.checkComment(comment);
 
-        if (result === CheckResult.ham) {
-          // If comment is not spam (or ham as Akismet calls it), push the entry to the database.
-          await db.insert(GuestBook).values({ author, content });
+          if (result === CheckResult.ham) {
+            // If comment is not spam (or ham as Akismet calls it), push the entry to the database.
+            await db.insert(GuestBook).values({ author, content });
 
-          // Finally redirect back to homepage!
-          return Astro.redirect('/');
-        } else {
-          // Otherwise disregard comment.
-          throw new Error('This comment has not been published.');
-        }
-      } catch (error) {
-        if (typeof error === 'string' || typeof error === 'object') {
-          handleError(error);
+            // Finally redirect back to homepage!
+            return Astro.redirect('/');
+          } else {
+            // Otherwise disregard comment.
+            throw new Error('This comment has not been published.');
+          }
+        } catch (error) {
+          if (typeof error === 'string' || typeof error === 'object') {
+            handleError(error);
+          }
         }
       }
     }
@@ -86,6 +90,8 @@ const guestBook = await db.select().from(GuestBook);
       <dl class="flow flow-sm">
         {
           guestBook
+            // @ts-ignore
+            .sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp))
             .map(({ author, content, timestamp }) => (
               <div class="card">
                 <dt>
@@ -102,7 +108,6 @@ const guestBook = await db.select().from(GuestBook);
                 </dd>
               </div>
             ))
-            .reverse()
         }
       </dl>
 
@@ -113,6 +118,10 @@ const guestBook = await db.select().from(GuestBook);
             <label for="author">
               Author
               <input id="author" name="author" />
+            </label>
+
+            <label for="special" class="special">
+              <input id="special" name="special" />
             </label>
 
             <label for="content">
@@ -144,5 +153,15 @@ const guestBook = await db.select().from(GuestBook);
   }
   .gap {
     gap: var(--grid-gap, 1rem);
+  }
+
+  .special {
+    opacity: 0;
+    position: absolute;
+    top: 0;
+    left: 0;
+    height: 0;
+    width: 0;
+    z-index: -1;
   }
 </style>
